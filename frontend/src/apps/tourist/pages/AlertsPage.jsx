@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLanguage } from '../LanguageContext';
+import { useLanguage } from '../useLanguage';
 import { EMERGENCY_PHRASES } from '../translations';
 import * as touristApi from '../touristApi';
 
@@ -341,7 +341,12 @@ export default function AlertsPage({ onTabChange }) {
       {/* 4. ACTIVE AREA ALERTS */}
       <div className="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 shadow-md space-y-2">
         <p className="text-xs font-bold text-white">Area Safety Notices</p>
-        {alerts.length > 0 ? (
+        {loading ? (
+          <div className="p-4 bg-slate-850/50 rounded-xl text-center flex items-center justify-center gap-2">
+            <span className="w-3.5 h-3.5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+            <span className="text-xs text-slate-400">Loading safety notices...</span>
+          </div>
+        ) : alerts.length > 0 ? (
           <div className="space-y-2">
             {alerts.map((a, i) => (
               <div key={a.id || i} className="p-3 bg-slate-800/60 rounded-xl border border-slate-700/50 flex items-start gap-2.5">

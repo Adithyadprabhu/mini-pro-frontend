@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
+    "test": "node test-audit.cjs",
     "server": "node server/server.js",
     "start": "node server/server.js"
   },

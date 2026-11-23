@@ -12,138 +12,125 @@ export default function AdminLogin() {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
-
     try {
-      if (!email.trim() || !password) {
-        throw new Error('Command administrator credentials required');
-      }
+      if (!email.trim() || !password) throw new Error('Please enter your credentials');
       await login(email.trim(), password, 'admin');
     } catch (err) {
-      setError(err.message || 'Authentication rejected. Invalid command administrative credentials.');
+      setError(err.message || 'Invalid credentials. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col justify-center items-center p-6 select-none relative overflow-hidden">
-      {/* Background Cartography Grid Overlay */}
-      <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px] opacity-25 pointer-events-none" />
+    <div className="min-h-screen bg-[#060b18] flex items-center justify-center p-6 font-sans antialiased relative overflow-hidden">
+      {/* Animated Background Orbs */}
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] bg-emerald-500/8 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[400px] h-[400px] bg-cyan-500/8 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-[40%] left-[60%] w-[300px] h-[300px] bg-blue-500/5 rounded-full blur-[100px] pointer-events-none" />
+      
+      {/* Grid Pattern */}
+      <div className="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:32px_32px] opacity-15 pointer-events-none" />
 
-      <div className="w-full max-w-md bg-surface-container-low border border-outline-variant/40 shadow-2xl p-8 relative z-10 font-mono">
-        {/* Terminal Header Bar */}
-        <div className="flex items-center justify-between pb-4 border-b border-outline-variant/30 mb-6">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 bg-primary" />
-            <span className="font-grotesk text-lg font-bold text-on-surface uppercase tracking-wider">
-              SENTINEL // ADMIN COMMAND
-            </span>
-          </div>
-          <span className="text-[10px] bg-surface-container-high text-primary px-2 py-0.5 font-bold">
-            TIER-1 ACCESS
-          </span>
-        </div>
-
-        <div className="mb-6">
-          <h2 className="font-grotesk text-xl font-bold uppercase text-on-surface">
-            Command Center Authentication
-          </h2>
-          <p className="text-xs text-outline mt-1">
-            Authorized administrative access for spatial analytics, district GIS oversight, and citywide incident coordination.
-          </p>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 bg-error-container/30 border border-error/50 text-error text-xs flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm shrink-0">gpp_bad</span>
-            <span>{error}</span>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="block text-[10px] text-outline uppercase font-semibold mb-1">
-              Admin Identification / Email
-            </label>
-            <div className="flex items-center bg-surface-container px-3 py-2 border border-outline-variant/30 focus-within:border-primary transition-colors">
-              <span className="material-symbols-outlined text-outline text-base mr-2">admin_panel_settings</span>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@yourdomain.com"
-                className="bg-transparent text-xs text-on-surface w-full focus:outline-none"
-              />
+      <div className="w-full max-w-[420px] relative z-10">
+        <div className="bg-[#0a1128]/80 backdrop-blur-2xl rounded-3xl p-8 border border-white/[0.08] shadow-2xl shadow-black/40">
+          {/* Logo */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center mb-5 shadow-xl shadow-emerald-500/25">
+              <span className="material-symbols-outlined text-white text-[32px]">shield</span>
             </div>
+            <h1 className="text-[26px] font-bold text-white tracking-tight">Tourist Guardian</h1>
+            <p className="text-sm text-slate-400 mt-1.5">Sign in to Admin Portal</p>
           </div>
 
-          <div>
-            <label className="block text-[10px] text-outline uppercase font-semibold mb-1">
-              Security Key / Password
-            </label>
-            <div className="flex items-center bg-surface-container px-3 py-2 border border-outline-variant/30 focus-within:border-primary transition-colors">
-              <span className="material-symbols-outlined text-outline text-base mr-2">key</span>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
-                className="bg-transparent text-xs text-on-surface w-full focus:outline-none"
-              />
+          {/* Error */}
+          {error && (
+            <div className="mb-5 flex items-center gap-2.5 bg-red-500/8 border border-red-500/15 text-red-400 rounded-xl px-4 py-3 text-sm">
+              <span className="material-symbols-outlined text-lg shrink-0">error</span>
+              <span>{error}</span>
             </div>
-          </div>
+          )}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full mt-2 py-3 bg-primary hover:bg-primary-container text-on-primary font-bold uppercase tracking-wider text-xs transition-all flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
-          >
-            {submitting ? (
-              <>
-                <span className="w-3.5 h-3.5 border-2 border-on-primary border-t-transparent rounded-full animate-spin" />
-                <span>Verifying Clearance...</span>
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-sm">lock_open</span>
-                <span>Authenticate Session</span>
-              </>
-            )}
-          </button>
-        </form>
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <div>
+              <label className="block text-sm text-slate-400 mb-2 font-medium">Email</label>
+              <div className="relative group">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-emerald-400 text-lg transition-colors">mail</span>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@sentinel.local"
+                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl pl-11 pr-4 py-3 text-white text-sm placeholder:text-slate-600 focus:border-emerald-500/50 focus:bg-white/[0.05] focus:ring-1 focus:ring-emerald-500/20 outline-none transition-all"
+                />
+              </div>
+            </div>
 
-        {/* Credentials Helper Box */}
-        <div className="mt-5 p-3 bg-surface-container/80 border border-outline-variant/40 text-[10px] space-y-1.5">
-          <div className="text-primary font-bold uppercase tracking-wider flex items-center gap-1.5">
-            <span className="material-symbols-outlined text-xs">key</span>
-            <span>Default Administrator Credentials</span>
+            <div>
+              <label className="block text-sm text-slate-400 mb-2 font-medium">Password</label>
+              <div className="relative group">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600 group-focus-within:text-emerald-400 text-lg transition-colors">lock</span>
+                <input
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-white/[0.03] border border-white/[0.08] rounded-xl pl-11 pr-4 py-3 text-white text-sm placeholder:text-slate-600 focus:border-emerald-500/50 focus:bg-white/[0.05] focus:ring-1 focus:ring-emerald-500/20 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full mt-2 py-3.5 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-white rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30"
+            >
+              {submitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                  <span>Signing in...</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-lg">lock_open</span>
+                  <span>Sign In</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Demo Credentials */}
+          <div className="mt-6 p-4 bg-white/[0.02] rounded-xl border border-white/[0.06]">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-emerald-400/70 text-sm">key</span>
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Demo Credentials</span>
+            </div>
+            <div className="space-y-1.5 text-[13px]">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Email</span>
+                <span className="text-slate-300 font-medium font-mono text-xs select-all">admin@sentinel.local</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Password</span>
+                <span className="text-slate-300 font-medium font-mono text-xs select-all">password</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setEmail('admin@sentinel.local'); setPassword('password'); }}
+              className="w-full mt-3 py-2 bg-white/[0.04] hover:bg-emerald-500/10 border border-white/[0.06] hover:border-emerald-500/20 text-slate-400 hover:text-emerald-400 rounded-lg text-xs font-medium transition-all"
+            >
+              Auto-fill Credentials
+            </button>
           </div>
-          <div className="flex justify-between text-on-surface-variant font-mono text-[10px]">
-            <span className="text-outline">Email:</span>
-            <span className="text-on-surface font-bold select-all">admin@yourdomain.com</span>
-          </div>
-          <div className="flex justify-between text-on-surface-variant font-mono text-[10px]">
-            <span className="text-outline">Password:</span>
-            <span className="text-on-surface font-bold select-all">Admin@Sentinel2026!</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setEmail('admin@yourdomain.com');
-              setPassword('Admin@Sentinel2026!');
-            }}
-            className="w-full mt-2 py-1.5 bg-surface-container-high hover:bg-surface-variant text-primary text-[9px] font-bold uppercase transition-colors"
-          >
-            Auto-Fill Admin Credentials
-          </button>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-outline-variant/20 flex items-center justify-between text-[9px] text-outline">
-          <span>PORTAL ID: ADM-HQ-01</span>
-          <span>GEODETIC REF: EPSG:2240</span>
-        </div>
+        <p className="text-center text-[11px] text-slate-700 mt-5">
+          Tourist Guardian • B.C. Road, Bantwal
+        </p>
       </div>
     </div>
   );

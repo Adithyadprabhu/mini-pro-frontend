@@ -1,25 +1,29 @@
-import { useState, useEffect } from 'react';
+
+import { useState } from 'react';
 import { useAuth } from '../../../context/useAuth';
-import { useLanguage } from '../LanguageContext';
+import { useLanguage } from '../useLanguage';
 
 export default function ProfilePage() {
   const { user, logout } = useAuth();
   const { lang, changeLanguage } = useLanguage();
 
-  const [emergencyName, setEmergencyName] = useState('');
-  const [emergencyPhone, setEmergencyPhone] = useState('');
-  const [contactSaved, setContactSaved] = useState(false);
-
-  useEffect(() => {
+  const [emergencyName, setEmergencyName] = useState(() => {
     try {
       const saved = localStorage.getItem('tourist_emergency_contact');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setEmergencyName(parsed.name || '');
-        setEmergencyPhone(parsed.phone || '');
-      }
+      if (saved) return JSON.parse(saved).name || '';
     } catch { /* ignore */ }
-  }, []);
+    return '';
+  });
+
+  const [emergencyPhone, setEmergencyPhone] = useState(() => {
+    try {
+      const saved = localStorage.getItem('tourist_emergency_contact');
+      if (saved) return JSON.parse(saved).phone || '';
+    } catch { /* ignore */ }
+    return '';
+  });
+
+  const [contactSaved, setContactSaved] = useState(false);
 
   const saveEmergencyContact = () => {
     localStorage.setItem('tourist_emergency_contact', JSON.stringify({ name: emergencyName, phone: emergencyPhone }));
@@ -58,11 +62,10 @@ export default function ProfilePage() {
             <button
               key={item.id}
               onClick={() => changeLanguage(item.id)}
-              className={`py-2.5 rounded-xl text-center border text-xs font-semibold transition-all ${
-                lang === item.id
+              className={`py-2.5 rounded-xl text-center border text-xs font-semibold transition-all ${lang === item.id
                   ? 'bg-cyan-500/15 border-cyan-500 text-cyan-400 shadow-sm'
                   : 'bg-slate-800/60 border-slate-700/60 text-slate-400 hover:text-white'
-              }`}
+                }`}
             >
               {item.label}
             </button>

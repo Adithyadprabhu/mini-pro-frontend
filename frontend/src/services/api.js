@@ -278,6 +278,81 @@ export async function fetchHealthCheck() {
   }
 }
 
+export async function fetchTouristLocations() {
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/admin/tourist-locations`);
+    if (!res.ok) return { tourists: [], meta: {} };
+    return await res.json();
+  } catch (err) {
+    console.error('Error in fetchTouristLocations:', err);
+    return { tourists: [], meta: {} };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// DAILY SAFETY CHECK-IN SERVICES
+// ─────────────────────────────────────────────────────────────
+export async function fetchActiveDailyCheckin() {
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/tourist/daily-checkin/active`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('Error in fetchActiveDailyCheckin:', err);
+    return null;
+  }
+}
+
+export async function respondDailyCheckin(payload) {
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/tourist/daily-checkin/respond`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('Error in respondDailyCheckin:', err);
+    throw err;
+  }
+}
+
+export async function fetchAdminDailyCheckins(date = null) {
+  try {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    const res = await fetchWithTimeout(`${API_BASE}/admin/daily-checkins${query}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    console.error('Error in fetchAdminDailyCheckins:', err);
+    return null;
+  }
+}
+
+export async function triggerDailyCheckins(deadlineMinutes = 30) {
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/admin/daily-checkins/trigger`, {
+      method: 'POST',
+      body: JSON.stringify({ deadlineMinutes }),
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('Error in triggerDailyCheckins:', err);
+    throw err;
+  }
+}
+
+export async function acknowledgeDailyCheckinAlert(checkinId) {
+  try {
+    const res = await fetchWithTimeout(`${API_BASE}/admin/daily-checkins/${encodeURIComponent(checkinId)}/acknowledge`, {
+      method: 'POST',
+    });
+    return await res.json();
+  } catch (err) {
+    console.error('Error in acknowledgeDailyCheckinAlert:', err);
+    throw err;
+  }
+}
+
 export default {
   API_BASE,
   login,
@@ -299,4 +374,10 @@ export default {
   broadcastAlert,
   fetchCrimeRiskPrediction,
   fetchHealthCheck,
+  fetchTouristLocations,
+  fetchActiveDailyCheckin,
+  respondDailyCheckin,
+  fetchAdminDailyCheckins,
+  triggerDailyCheckins,
+  acknowledgeDailyCheckinAlert,
 };

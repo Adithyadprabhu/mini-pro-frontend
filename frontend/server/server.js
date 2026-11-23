@@ -22,13 +22,16 @@ const mimeTypes = {
   '.webmanifest': 'application/manifest+json',
 };
 
-// Helper to parse JSON body
+// Helper to parse JSON body with size and error guard
 function parseJsonBody(req) {
   return new Promise((resolve) => {
     let body = '';
     req.on('data', (chunk) => {
       body += chunk;
-      if (body.length > 1e6) req.destroy();
+      if (body.length > 1e6) {
+        req.destroy();
+        resolve({});
+      }
     });
     req.on('end', () => {
       try {
@@ -37,11 +40,12 @@ function parseJsonBody(req) {
         resolve({});
       }
     });
+    req.on('error', () => resolve({}));
   });
 }
 
-// Helper to authenticate request (supports direct access fallback)
-function authenticate(req, requiredRole = null) {
+// Helper to authenticate request (supports optional direct access fallback)
+function authenticate(req, allowFallback = false) {
   const authHeader = req.headers['authorization'] || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (token) {
@@ -49,9 +53,11 @@ function authenticate(req, requiredRole = null) {
     if (session) return session;
   }
 
-  // Direct access fallback when authentication enforcement is bypassed
+  if (!allowFallback) return null;
+
+  // Direct access fallback when authentication enforcement is bypassed in demo mode
   const host = (req.headers['host'] || '').toLowerCase();
-  let role = requiredRole || 'admin';
+  let role = 'admin';
   if (host.includes('tourist')) role = 'tourist';
   else if (host.includes('police')) role = 'police';
 
@@ -63,10 +69,10 @@ function authenticate(req, requiredRole = null) {
         ? 'Command Administrator'
         : role === 'police'
         ? 'Officer J. Vance'
-        : 'Atlanta Tourist',
+        : 'Tourist Guest',
     email: `${role}@yourdomain.com`,
     badgeNumber: role === 'police' ? 'APD-504' : null,
-    phone: '404-555-0199',
+    phone: '+91 98765 43210',
   };
 }
 
@@ -190,7 +196,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname.startsWith('/api/tourist/')) {
     // Send SOS Emergency Call (Auto-propagates to CAD police & admin)
     if (pathname === '/api/tourist/sos' && req.method === 'POST') {
-      const session = authenticate(req) || { user_id: 'anonymous', name: 'Tourist App User', phone: null };
+      const session = authenticate(req, true) || { user_id: 'anonymous', name: 'Tourist App User', phone: null };
       const { latitude, longitude, locationName, notes } = await parseJsonBody(req);
 
       const result = db.createSosRequest({
@@ -218,12 +224,12 @@ const server = http.createServer(async (req, res) => {
 
     // Geofence alert notification
     if (pathname === '/api/tourist/geofence-alert' && req.method === 'POST') {
-      const session = authenticate(req);
+      const session = authenticate(req, true);
       const { type, location, description } = await parseJsonBody(req);
       const alert = db.createGeofenceAlert({
         userId: session?.user_id || 'anonymous',
         type: type || 'PERIMETER NOTIFICATION',
-        location: location || 'Centennial Park Perimeter',
+        location: location || 'B.C. Road Safety Perimeter',
         description: description || 'Tourist safety geofence advisory delivered.',
       });
       return sendJson(201, { success: true, alert });
@@ -313,9 +319,9 @@ const server = http.createServer(async (req, res) => {
 
     // Tourist profile
     if (pathname === '/api/tourist/profile' && req.method === 'GET') {
-      const session = authenticate(req);
+      const session = authenticate(req, true);
       return sendJson(200, {
-        user: { id: session.user_id, email: session.email, name: session.name, role: session.role, phone: session.phone },
+        user: { id: session?.user_id, email: session?.email, name: session?.name, role: session?.role, phone: session?.phone },
       });
     }
 
@@ -425,6 +431,70 @@ const server = http.createServer(async (req, res) => {
         },
       });
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // DAILY SAFETY CHECK-IN APIS (Tourist)
+    // ─────────────────────────────────────────────────────────────
+    if (pathname === '/api/tourist/daily-checkin/active' && req.method === 'GET') {
+      const session = authenticate(req, true);
+      const userId = session?.user_id || 'usr_tourist_active';
+      const today = db.getTodayString();
+      let checkin = db.getActiveCheckinForUser(userId, today);
+      if (!checkin) {
+        checkin = db.createDailyCheckin({
+          userId,
+          userName: session?.name || 'Tourist Traveler',
+          userEmail: session?.email || 'tourist@sentinel.local',
+          userPhone: session?.phone || '+91 98765 43210',
+          date: today,
+          responseDeadlineMinutes: 30,
+        });
+      }
+      return sendJson(200, { activeCheckin: checkin });
+    }
+
+    if (pathname === '/api/tourist/daily-checkin/respond' && req.method === 'POST') {
+      const {
+        checkinId,
+        status, // 'SAFE' | 'HELP_REQUESTED'
+        latitude,
+        longitude,
+        locationName,
+        isLiveLocation = true,
+        emergencyName,
+        emergencyPhone,
+        notes,
+      } = await parseJsonBody(req);
+
+      if (!checkinId || !status || (status !== 'SAFE' && status !== 'HELP_REQUESTED')) {
+        return sendJson(400, { error: 'Valid checkinId and status (SAFE or HELP_REQUESTED) are required' });
+      }
+
+      const updated = db.respondToCheckin(checkinId, status, {
+        latitude,
+        longitude,
+        locationName,
+        isLiveLocation: isLiveLocation !== false,
+        emergencyName,
+        emergencyPhone,
+        notes,
+      });
+
+      if (!updated) {
+        return sendJson(404, { error: 'Check-in record not found' });
+      }
+
+      const message =
+        status === 'SAFE'
+          ? 'Your safety confirmation has been received. Have a safe evening!'
+          : 'EMERGENCY HELP REQUESTED: Bantwal emergency monitoring team and police alerted with your live location.';
+
+      return sendJson(200, {
+        success: true,
+        message,
+        checkin: updated,
+      });
+    }
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -464,6 +534,71 @@ const server = http.createServer(async (req, res) => {
   // 4. ADMIN COMMAND WEB APPLICATION SYNCHRONIZED APIS
   // ─────────────────────────────────────────────────────────────
   if (pathname.startsWith('/api/admin/')) {
+    // Tourist live locations (simulated GPS around B.C. Road, Bantwal)
+    if (pathname === '/api/admin/tourist-locations' && req.method === 'GET') {
+      const tourists = db.db.prepare("SELECT id, name, email, phone, created_at FROM users WHERE role = 'tourist'").all();
+      const BC_LAT = 12.8817, BC_LNG = 75.0299;
+      const statuses = ['active', 'resting', 'exploring', 'in-transit'];
+      const landmarks = [
+        { name: 'Dharmasthala Temple', lat: 12.9622, lng: 75.3724 },
+        { name: 'Manjeshwar Beach', lat: 12.7244, lng: 74.8855 },
+        { name: 'B.C. Road Market', lat: 12.8820, lng: 75.0305 },
+        { name: 'Bantwal Town', lat: 12.8911, lng: 75.0348 },
+        { name: 'Uppinangady', lat: 12.8333, lng: 75.2667 },
+        { name: 'Vitla Town', lat: 12.7693, lng: 75.1058 },
+      ];
+      const result = tourists.map((t, i) => {
+        const jitterLat = (Math.random() - 0.5) * 0.025;
+        const jitterLng = (Math.random() - 0.5) * 0.025;
+        const minAgo = Math.floor(Math.random() * 15);
+        const landmark = landmarks[i % landmarks.length];
+        return {
+          id: t.id,
+          name: t.name || `Tourist ${t.id}`,
+          email: t.email,
+          phone: t.phone || '+91 98765 43210',
+          lat: BC_LAT + jitterLat,
+          lng: BC_LNG + jitterLng,
+          lastSeen: `${minAgo} min ago`,
+          status: statuses[Math.floor(Math.random() * statuses.length)],
+          nearestLandmark: landmark.name,
+          batteryLevel: Math.floor(60 + Math.random() * 40),
+          registeredAt: t.created_at,
+        };
+      });
+      // If no real tourists registered, return demo data
+      if (result.length === 0) {
+        const demoNames = ['Rahul Sharma', 'Priya Nair', 'Akira Tanaka', 'David Wilson', 'Maria Garcia', 'Chen Wei', 'Fatima Al-Hassan', 'James Okonkwo'];
+        for (let i = 0; i < demoNames.length; i++) {
+          const jLat = (Math.random() - 0.5) * 0.025;
+          const jLng = (Math.random() - 0.5) * 0.025;
+          const landmark = landmarks[i % landmarks.length];
+          result.push({
+            id: i + 1,
+            name: demoNames[i],
+            email: `${demoNames[i].split(' ')[0].toLowerCase()}@example.com`,
+            phone: `+91 ${90000 + Math.floor(Math.random() * 9999)} ${10000 + Math.floor(Math.random() * 89999)}`,
+            lat: BC_LAT + jLat,
+            lng: BC_LNG + jLng,
+            lastSeen: `${Math.floor(Math.random() * 15)} min ago`,
+            status: statuses[Math.floor(Math.random() * statuses.length)],
+            nearestLandmark: landmark.name,
+            batteryLevel: Math.floor(60 + Math.random() * 40),
+            registeredAt: new Date(Date.now() - Math.random() * 7 * 86400000).toISOString(),
+          });
+        }
+      }
+      return sendJson(200, {
+        tourists: result,
+        meta: {
+          totalTracked: result.length,
+          activeNow: result.filter(t => t.status === 'active' || t.status === 'exploring').length,
+          inSafeZone: result.filter(t => Math.abs(t.lat - BC_LAT) < 0.01 && Math.abs(t.lng - BC_LNG) < 0.01).length,
+          lastUpdated: new Date().toISOString(),
+        }
+      });
+    }
+
     if (pathname === '/api/admin/overview' && req.method === 'GET') {
       const incidents = db.getAllIncidents();
       const sosList = db.getActiveSosRequests();
@@ -481,6 +616,60 @@ const server = http.createServer(async (req, res) => {
         incidents,
         sosList,
       });
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // DAILY CHECK-IN MONITORING APIS (Admin)
+    // ─────────────────────────────────────────────────────────────
+    if (pathname === '/api/admin/daily-checkins' && req.method === 'GET') {
+      const dateParam = parsedUrl.searchParams.get('date') || db.getTodayString();
+      // Ensure overdue check-ins transition automatically
+      db.checkAndExpireOverdueCheckins();
+
+      let allCheckins = db.getDailyCheckins(dateParam);
+      // Auto-initialize for today if none exist yet
+      if (allCheckins.length === 0 && dateParam === db.getTodayString()) {
+        db.initiateDailyCheckinsForAllTourists(30);
+        allCheckins = db.getDailyCheckins(dateParam);
+      }
+
+      const totalTourists = db.db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'tourist'").get().count;
+
+      const safeCount = allCheckins.filter(c => c.status === 'SAFE').length;
+      const pendingCount = allCheckins.filter(c => c.status === 'PENDING').length;
+      const noResponseCount = allCheckins.filter(c => c.status === 'NO_RESPONSE').length;
+      const helpRequestedCount = allCheckins.filter(c => c.status === 'HELP_REQUESTED').length;
+
+      return sendJson(200, {
+        kpis: {
+          totalActiveTourists: Math.max(totalTourists, allCheckins.length),
+          safeCount,
+          pendingCount,
+          noResponseCount,
+          helpRequestedCount,
+          unacknowledgedAlerts: allCheckins.filter(c => (c.status === 'NO_RESPONSE' || c.status === 'HELP_REQUESTED') && !c.admin_acknowledged).length,
+        },
+        checkins: allCheckins,
+        filterDate: dateParam,
+        lastUpdated: new Date().toISOString(),
+      });
+    }
+
+    if (pathname === '/api/admin/daily-checkins/trigger' && req.method === 'POST') {
+      const { deadlineMinutes = 30 } = await parseJsonBody(req);
+      const created = db.initiateDailyCheckinsForAllTourists(Number(deadlineMinutes) || 30);
+      return sendJson(200, {
+        success: true,
+        message: `Safety check-in notification sent to ${created.length} tourists.`,
+        createdCount: created.length,
+      });
+    }
+
+    if (pathname.match(/^\/api\/admin\/daily-checkins\/[^/]+\/acknowledge$/) && req.method === 'POST') {
+      const parts = pathname.split('/');
+      const checkinId = decodeURIComponent(parts[4]);
+      const updated = db.acknowledgeCheckinAlert(checkinId);
+      return sendJson(200, { success: true, checkin: updated });
     }
   }
 
@@ -540,7 +729,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/tourist-safety/broadcast' && req.method === 'POST') {
-      return sendJson(200, { success: true, message: 'Broadcast alert transmitted to Atlanta Tourist Gateway' });
+      return sendJson(200, { success: true, message: 'Broadcast alert transmitted to Bantwal Tourist Gateway' });
     }
 
     if (pathname === '/api/crime-risk') {
@@ -549,7 +738,7 @@ const server = http.createServer(async (req, res) => {
           riskIndex: 38,
           riskLevel: 'MODERATE',
           confidence: 94.2,
-          recommendation: 'Maintain continuous patrols along Peachtree St Corridor; monitor transit exit points.',
+          recommendation: 'Maintain continuous patrols along B.C. Road Corridor; monitor transit exit points.',
         },
       });
     }
@@ -566,11 +755,16 @@ const server = http.createServer(async (req, res) => {
   // ─────────────────────────────────────────────────────────────
   // 6. SUBDOMAIN ROUTING & STATIC FILE SERVING
   // ─────────────────────────────────────────────────────────────
-  // Host header routing detection:
-  // - tourist.yourdomain.com / tourist.localhost
-  // - admin.yourdomain.com / admin.localhost
-  // - police.yourdomain.com / police.localhost
-  let filePath = path.join(DIST_DIR, pathname === '/' ? 'index.html' : pathname);
+  // Sanitize path to prevent directory traversal
+  const safePath = path.normalize(pathname).replace(/^(\.\.[/\\])+/, '');
+  let filePath = path.join(DIST_DIR, safePath === '/' || safePath === '\\' ? 'index.html' : safePath);
+
+  // Guarantee that filePath remains strictly inside DIST_DIR
+  const resolvedDist = path.resolve(DIST_DIR);
+  const resolvedTarget = path.resolve(filePath);
+  if (!resolvedTarget.startsWith(resolvedDist)) {
+    filePath = path.join(DIST_DIR, 'index.html');
+  }
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
@@ -584,12 +778,32 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('404 Not Found');
       } else {
-        res.writeHead(200, { 'Content-Type': contentType });
+        res.writeHead(200, {
+          'Content-Type': contentType,
+          'X-Content-Type-Options': 'nosniff',
+        });
         res.end(content);
       }
     });
   });
 });
+
+// Background task: Expire overdue safety check-ins and trigger 8:00 PM automatic check-in
+let lastEveningBroadcastDate = '';
+setInterval(() => {
+  try {
+    db.checkAndExpireOverdueCheckins();
+    const now = new Date();
+    // Default 8:00 PM (20:00) check-in trigger
+    if (now.getHours() >= 20 && lastEveningBroadcastDate !== db.getTodayString()) {
+      db.initiateDailyCheckinsForAllTourists(30);
+      lastEveningBroadcastDate = db.getTodayString();
+      console.log(`[Safety Check-in] Evening 8:00 PM safety check-in broadcast sent for ${lastEveningBroadcastDate}`);
+    }
+  } catch (err) {
+    console.error('Error in background checkin monitor worker:', err);
+  }
+}, 30000);
 
 server.listen(PORT, () => {
   console.log(`Atlanta Sentinel Unified Multi-Portal Server running on port ${PORT}`);

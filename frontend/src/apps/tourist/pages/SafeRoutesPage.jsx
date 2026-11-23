@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLanguage } from '../LanguageContext';
+import { useLanguage } from '../useLanguage';
 import * as touristApi from '../touristApi';
 
 const LANDMARKS = [

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/useAuth';
 import * as api from '../../services/api';
 
@@ -12,27 +12,39 @@ export default function PoliceDashboard() {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
 
+  const loadIncidents = useCallback(async () => {
+    try {
+      const data = await api.fetchPoliceIncidents();
+      if (data?.incidents) {
+        setIncidents(data.incidents);
+        setActiveSosCount(data.activeSosCount || 0);
+      }
+    } catch {
+      // Standby
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
+    let isMounted = true;
+    const sync = async () => {
       try {
         const data = await api.fetchPoliceIncidents();
-        if (!cancelled && data?.incidents) {
+        if (isMounted && data?.incidents) {
           setIncidents(data.incidents);
           setActiveSosCount(data.activeSosCount || 0);
         }
       } catch {
         // Standby
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (isMounted) setLoading(false);
       }
-    }
-    load();
-    const interval = setInterval(load, 10000);
+    };
+    sync();
+    const interval = setInterval(sync, 10000);
     return () => {
-      cancelled = true;
+      isMounted = false;
       clearInterval(interval);
     };
   }, []);
@@ -42,7 +54,7 @@ export default function PoliceDashboard() {
       await api.assignPoliceIncident(incidentId, unitCallsign);
       setDutyStatus('EN ROUTE');
       setToast({ title: 'DISPATCH ACCEPTED', body: `Unit ${unitCallsign} assigned to ${incidentId}. Route transmitted.` });
-      loadIncidents();
+      await loadIncidents();
     } catch (err) {
       setToast({ title: 'ERROR', body: err.message || 'Failed to assign incident' });
     }
@@ -53,7 +65,7 @@ export default function PoliceDashboard() {
       await api.resolvePoliceIncident(incidentId);
       setDutyStatus('AVAILABLE');
       setToast({ title: 'INCIDENT RESOLVED', body: `${incidentId} marked as cleared. Status synchronized with CAD stream.` });
-      loadIncidents();
+      await loadIncidents();
     } catch (err) {
       setToast({ title: 'ERROR', body: err.message || 'Failed to resolve incident' });
     }
@@ -77,10 +89,10 @@ export default function PoliceDashboard() {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-grotesk text-base font-bold uppercase tracking-wider text-on-surface">
-                APD CAD DISPATCH TERMINAL
+                BANTWAL POLICE CAD DISPATCH TERMINAL
               </span>
               <span className="px-1.5 py-0.5 bg-secondary text-on-secondary text-[9px] font-bold">
-                ZONE 5
+                B.C. ROAD SECTOR
               </span>
             </div>
             <div className="text-[10px] text-outline">
@@ -135,7 +147,7 @@ export default function PoliceDashboard() {
         <div className="mx-4 mt-3 p-3 bg-tertiary-container/30 border-2 border-tertiary-container flex items-center justify-between animate-pulse">
           <div className="flex items-center gap-2 text-tertiary font-bold text-xs">
             <span className="material-symbols-outlined text-lg">emergency</span>
-            <span>URGENT: {activeSosCount} ACTIVE TOURIST SOS REQUEST IN ZONE 5 CORRIDOR</span>
+            <span>URGENT: {activeSosCount} ACTIVE TOURIST SOS REQUEST IN B.C. ROAD SECTOR</span>
           </div>
           <button
             onClick={() => setFilter('sos')}
@@ -275,7 +287,7 @@ export default function PoliceDashboard() {
           <div className="bg-surface-container-low border border-outline-variant/30 p-3 space-y-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-grotesk font-bold uppercase text-on-surface">
-                ZONE 5 TACTICAL CAD GRID
+                B.C. ROAD TACTICAL CAD GRID
               </span>
               <span className="text-[9px] text-outline">LIVE GPS MESH</span>
             </div>
@@ -286,14 +298,14 @@ export default function PoliceDashboard() {
                 <line x1="250" y1="0" x2="250" y2="250" stroke="#2f3445" strokeWidth="4" />
                 <line x1="0" y1="125" x2="500" y2="125" stroke="#2f3445" strokeWidth="4" />
                 <line x1="100" y1="30" x2="400" y2="220" stroke="#33394a" strokeWidth="2" />
-                <text fill="#8c909f" fontFamily="JetBrains Mono" fontSize="9" x="260" y="25">I-75/85 DOWNTOWN</text>
-                <text fill="#4cd7f6" fontFamily="JetBrains Mono" fontSize="9" x="10" y="115">PEACHTREE CORRIDOR</text>
+                <text fill="#8c909f" fontFamily="JetBrains Mono" fontSize="9" x="260" y="25">NH-75 HIGHWAY</text>
+                <text fill="#4cd7f6" fontFamily="JetBrains Mono" fontSize="9" x="10" y="115">B.C. ROAD CORRIDOR</text>
               </svg>
 
               <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center pointer-events-none">
                 <span className="material-symbols-outlined text-secondary text-2xl mb-1">radar</span>
-                <span className="text-xs font-bold text-on-surface uppercase">Sector 5 Active Patrol</span>
-                <span className="text-[9px] text-outline">Centennial Olympic Park • Five Points • Midtown</span>
+                <span className="text-xs font-bold text-on-surface uppercase">B.C. Road Active Patrol</span>
+                <span className="text-[9px] text-outline">Bus Stand • Bantwal Town • Melkar Junction</span>
               </div>
             </div>
           </div>
@@ -302,9 +314,9 @@ export default function PoliceDashboard() {
           <div className="bg-surface-container-low border border-outline-variant/30 p-4 space-y-2 text-xs">
             <div className="font-bold text-secondary uppercase">Officer Fast Protocol</div>
             <ul className="space-y-1.5 text-[11px] text-outline list-disc list-inside">
-              <li>Tourist SOS signals take top priority over code-3 noise dispatches.</li>
-              <li>Coordinate on-scene with Atlanta Downtown Ambassadors on channel 4.</li>
-              <li>Direct non-emergency tourists to the Peachtree lighted corridor.</li>
+              <li>Tourist SOS signals take top priority over standard calls.</li>
+              <li>Coordinate on-scene with Bantwal Traffic & Taluk Units on channel 4.</li>
+              <li>Direct non-emergency tourists to the B.C. Road well-lit commercial corridor.</li>
             </ul>
           </div>
         </div>

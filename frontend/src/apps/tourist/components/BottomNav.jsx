@@ -1,4 +1,4 @@
-import { useLanguage } from '../LanguageContext';
+import { useLanguage } from '../useLanguage';
 
 export default function BottomNav({ activeTab, onTabChange, alertCount = 0 }) {
   const { t } = useLanguage();

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/useAuth';
-import { useLanguage } from '../LanguageContext';
+import { useLanguage } from '../useLanguage';
 import * as touristApi from '../touristApi';
+import DailySafetyCheckin from '../components/DailySafetyCheckin';
 
 export default function HomePage({ onTabChange }) {
   const { user } = useAuth();
@@ -14,13 +15,9 @@ export default function HomePage({ onTabChange }) {
   const [sosConfirm, setSosConfirm] = useState(false);
   const [sosSending, setSosSending] = useState(false);
   const [sosResult, setSosResult] = useState(null);
+  const [hour] = useState(() => new Date().getHours());
 
-  const getGreeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return t.goodMorning;
-    if (h < 17) return t.goodAfternoon;
-    return t.goodEvening;
-  };
+  const greetingText = hour < 12 ? t.goodMorning : hour < 17 ? t.goodAfternoon : t.goodEvening;
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -77,7 +74,7 @@ export default function HomePage({ onTabChange }) {
       {/* 1. CLEAN HEADER: GREETING & SIMPLE LANGUAGE SWITCH */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs text-slate-400 font-medium">{getGreeting()},</p>
+          <p className="text-xs text-slate-400 font-medium">{greetingText},</p>
           <h1 className="text-xl font-bold text-white tracking-tight">
             {user?.name || 'Traveler'}
           </h1>
@@ -109,19 +106,22 @@ export default function HomePage({ onTabChange }) {
         </div>
       </div>
 
+      {/* DAILY SAFETY CHECK-IN (Evening Automated Safety Confirmation) */}
+      <DailySafetyCheckin />
+
       {/* 2. AREA SAFETY STATUS HERO (Risk Prediction Model) */}
       <div className="bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 rounded-3xl p-5 border border-emerald-500/25 shadow-lg relative overflow-hidden">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              Low Crime Risk • 94% Safe
+              {safetyStatus ? `${safetyStatus.riskLevel} Crime Risk • ${safetyStatus.confidence}% Safe` : 'Low Crime Risk • 94% Safe'}
             </span>
             <h2 className="text-lg font-bold text-white pt-1">
               You are in a Safe Area
             </h2>
             <p className="text-xs text-slate-300 leading-relaxed max-w-[280px]">
-              B.C. Road is peaceful today with active police presence along the transit corridor.
+              {safetyStatus?.recommendation || 'B.C. Road is peaceful today with active police presence along the transit corridor.'}
             </p>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
@@ -209,15 +209,15 @@ export default function HomePage({ onTabChange }) {
             <span className="material-symbols-outlined text-xl">local_police</span>
           </div>
           <div>
-            <p className="text-xs font-bold text-white">Bantwal Police Rapid Patrol</p>
+            <p className="text-xs font-bold text-white">{assignedTeam?.name || 'Bantwal Police Rapid Patrol'}</p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              📍 350m away • <strong className="text-emerald-400">~2 min response</strong>
+              📍 {assignedTeam?.currentLocation || '350m away'} • <strong className="text-emerald-400">~{assignedTeam?.etaMinutes || 2} min response</strong>
             </p>
           </div>
         </div>
 
         <a
-          href="tel:08255232333"
+          href={`tel:${assignedTeam?.phone?.replace(/[^0-9+]/g, '') || '08255232333'}`}
           className="px-3.5 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1 shadow-sm transition-all"
         >
           <span className="material-symbols-outlined text-sm">call</span>
